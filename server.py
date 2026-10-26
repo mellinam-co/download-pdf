@@ -1,6 +1,7 @@
 """Token-protected MCP downloader. Files stay on this server."""
 import asyncio
 import os
+import re
 import tempfile
 import time
 from pathlib import Path
@@ -11,6 +12,9 @@ import fitz
 import httpx
 from fastmcp import FastMCP
 from fastmcp.server.auth import StaticTokenVerifier
+from fastmcp.utilities.types import Image
+from starlette.responses import Response
+from pdf_tools import export_vectors
 
 TOKEN = os.environ['MCP_AUTH_TOKEN']
 if len(TOKEN) < 32:
@@ -40,7 +44,7 @@ def validate_url(url: str):
 
 
 def cleanup():
-    for path in STORAGE.glob('*.pdf'):
+    for path in STORAGE.iterdir():
         if path.stat().st_mtime < time.time() - TTL_SECONDS:
             path.unlink(missing_ok=True)
 
@@ -50,8 +54,7 @@ async def download_pdf(url: str) -> dict:
     """Download einer NSK-PDF. Die Datei-ID gilt NUR auf diesem MCP-Server.
 
     Keine automatische Uebergabe in Ambers Arbeitsbereich. Maximal 20 MB,
-    keine Weiterleitungen. Fuer weitere Verarbeitung sind Tools auf diesem
-    Server oder eine separate Dateitransfer-Integration erforderlich.
+    keine Weiterleitungen. Mit inspect_pdf, preview_page und export_logo_svg auf diesem Server bearbeiten.
     """
     validate_url(url)
     async with LOCK:
@@ -90,6 +93,116 @@ async def download_pdf(url: str) -> dict:
                 'size_bytes': len(data), 'pages': pages,
                 'storage': 'Nur auf diesem MCP-Server',
                 'retention': 'Temporär; Bereinigung bei Aufrufen nach 1 Stunde; Neustarts können Dateien löschen.'}
+
+
+def stored_file(file_id, suffix='pdf'):
+    cleanup()
+    if not re.fullmatch(r'[0-9a-f]{32}', file_id):
+        raise ValueError('Ungültige Datei-ID.')
+    path = STORAGE / f'{file_id}.{suffix}'
+    if not path.is_file():
+        raise ValueError('Datei nicht mehr vorhanden. PDF erneut herunterladen.')
+    return path
+
+
+def load_page(doc, page_number):
+    if not 1 <= page_number <= len(doc):
+        raise ValueError('Seitenzahl außerhalb der PDF. Erste Seite = 1.')
+    page = doc[page_number - 1]
+    if page.rotation:
+        raise ValueError('Gedrehte Seite wird noch nicht unterstützt.')
+    return page
+
+
+@mcp.tool()
+def inspect_pdf(file_id: str, page_number: int = 1, offset: int = 0) -> dict:
+    """Text und Vektorpfade einer Seite ansehen. Seiten ab 1, Pfad-IDs ab 0.
+
+    Liefert bis 200 Pfade pro Aufruf. offset für weitere Pfade erhöhen.
+    Koordinaten in PDF-Punkten: Ursprung links oben, x nach rechts, y nach unten.
+    Logo visuell prüfen; es gibt keine automatische Logoerkennung.
+    """
+    if offset < 0:
+        raise ValueError('offset darf nicht negativ sein.')
+    with fitz.open(stored_file(file_id)) as doc:
+        p = load_page(doc, page_number)
+        drawings = p.get_drawings()
+        if len(drawings) > 20000:
+            raise ValueError('Seite zu komplex.')
+        return {
+            'pages': len(doc), 'page': page_number,
+            'width': p.rect.width, 'height': p.rect.height,
+            'text': p.get_text()[:12000],
+            'image_count': len(p.get_images()),
+            'drawing_count': len(drawings),
+            'drawings': [dict(id=i, bbox=list(d['rect']),
+                              fill=d.get('fill'), stroke=d.get('color'),
+                              commands=len(d['items']))
+                         for i, d in enumerate(drawings[offset:offset+200], offset)],
+            'next_offset': offset+200 if offset+200 < len(drawings) else None,
+            'note': 'Nur Vektorpfade exportierbar. Bildlogos/Textobjekte sind nicht enthalten.'
+        }
+
+
+@mcp.tool()
+def preview_page(file_id: str, page_number: int = 1) -> Image:
+    """PDF-Seite als PNG an Amber zurückgeben. Seitenzählung beginnt bei 1."""
+    with fitz.open(stored_file(file_id)) as doc:
+        p = load_page(doc, page_number)
+        zoom = min(2, 1400 / max(p.rect.width, p.rect.height))
+        return Image(data=p.get_pixmap(matrix=fitz.Matrix(zoom, zoom)).tobytes('png'),
+                     format='png')
+
+
+@mcp.tool()
+def export_logo_svg(file_id: str, page_number: int,
+                    drawing_ids: list[int], color: str | None = None) -> dict:
+    """Ausgewählte Vektorpfade als transparentes SVG isolieren.
+
+    Zuerst preview_page und inspect_pdf nutzen. drawing_ids explizit anhand
+    der Position auswählen. color ist #RRGGBB oder null für Originalfarben.
+    Keine OCR/Vektorisierung von Bildlogos. Komplexe Masken/Verläufe können
+    abweichen. Danach preview_export aufrufen und Ergebnis visuell prüfen.
+    SVG wird als Text UND als temporärer Download-Link zurückgegeben.
+    Jeder mit dem Link kann das SVG bis zur Löschung herunterladen.
+    """
+    with fitz.open(stored_file(file_id)) as doc:
+        p = load_page(doc, page_number)
+        svg, png = export_vectors(p, drawing_ids, color)
+    if len(svg) > 2*1024*1024:
+        raise ValueError('SVG überschreitet 2 MB.')
+    exports = list(STORAGE.glob('*.svg'))
+    if len(exports) >= 20:
+        raise ValueError('Maximal 20 SVG-Exporte. Später erneut versuchen.')
+    export_id = uuid4().hex
+    (STORAGE / f'{export_id}.svg').write_bytes(svg)
+    (STORAGE / f'{export_id}.png').write_bytes(png)
+    base = os.environ.get('PUBLIC_BASE_URL', os.environ.get('RENDER_EXTERNAL_URL', '')).rstrip('/')
+    return {'export_id': export_id, 'filename': f'logo-{export_id}.svg',
+            'svg': svg.decode('utf-8'),
+            'download_url': f'{base}/files/{export_id}.svg' if base else None,
+            'note': 'Temporärer Link; Ergebnis mit preview_export visuell prüfen.'}
+
+
+@mcp.tool()
+def preview_export(export_id: str) -> Image:
+    """Exportiertes Logo auf weißem Hintergrund als PNG prüfen."""
+    return Image(data=stored_file(export_id, 'png').read_bytes(), format='png')
+
+
+@mcp.custom_route('/files/{export_id}.svg', methods=['GET'])
+async def download_svg(request):
+    # Unerratbare, kurzlebige Link-ID; absichtlich ohne Bearer-Header, damit
+    # der Nutzer den Link im Browser herunterladen kann.
+    try:
+        path = stored_file(request.path_params['export_id'], 'svg')
+    except ValueError:
+        return Response('Datei nicht gefunden oder abgelaufen.', status_code=404)
+    return Response(path.read_bytes(), media_type='image/svg+xml', headers={
+        'Content-Disposition': 'attachment; filename="logo.svg"',
+        'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff',
+        'Content-Security-Policy': "default-src 'none'; sandbox",
+    })
 
 
 if __name__ == '__main__':
