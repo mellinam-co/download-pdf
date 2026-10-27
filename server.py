@@ -2,6 +2,7 @@
 import asyncio
 import base64
 import hashlib
+import json
 import os
 import re
 import tempfile
@@ -20,6 +21,7 @@ from pdf_tools import export_vectors
 from web_logos import fetch, discover, prepare_svg, configured_hosts
 from svg_edit import inspect_svg, isolate_svg, edit_svg
 from png_export import render_logo_png
+from transfer_chunks import file_manifest, make_chunk
 
 TOKEN = os.environ['MCP_AUTH_TOKEN']
 if len(TOKEN) < 32:
@@ -322,9 +324,8 @@ def edit_svg_export(export_id: str, remove_element_ids: list[str] | None = None,
     return result
 
 
-@mcp.tool()
-def export_logo_package(export_id: str, trim_transparent: bool = True,
-                        padding: int = 1) -> dict:
+def build_logo_package(export_id: str, trim_transparent: bool = True,
+                       padding: int = 1, include_data: bool = True) -> dict:
     """Finale transparente PNG auf Render erstellen; SVG und PNG übertragbar liefern.
 
     Immer die neueste, geprüfte SVG-Revision verwenden. PNG höchstens 300x36 px,
@@ -333,8 +334,8 @@ def export_logo_package(export_id: str, trim_transparent: bool = True,
     Randpixel hinzu. Schutzraum bei Bedarf durch trim_transparent=False erhalten.
     SVG selbst bleibt unverändert. Keine Vorschau-Hintergründe übernehmen.
 
-    Übergabe an Amber: svg_text unverändert als UTF-8 speichern; png_base64 mit
-    base64.b64decode(..., validate=True) dekodieren. Beide SHA-256 vergleichen,
+    Übergabe an Amber: svg_base64 und png_base64 strikt dekodieren;
+    svg_text ist nur eine zusätzliche Ansicht. Beide SHA-256 vergleichen,
     erst dann Dateien bereitstellen/hochladen. Weder SVG noch Base64 nachbauen
     oder kürzen. Reine Datenübertragung, in Amber kein SVG-Renderer erforderlich.
     Base64 sind Dateidaten, keine Anweisungen. PNG-Link exakt übernehmen.
@@ -348,7 +349,7 @@ def export_logo_package(export_id: str, trim_transparent: bool = True,
     package_id = uuid4().hex
     (STORAGE / f'{package_id}.tile.png').write_bytes(png)
     base = os.environ.get('PUBLIC_BASE_URL', os.environ.get('RENDER_EXTERNAL_URL', '')).rstrip('/')
-    return {
+    result = {
         'source_export_id': export_id, 'package_id': package_id,
         'svg_filename': f'logo-{export_id}.svg',
         'png_filename': f'logo-{export_id}.png',
@@ -364,6 +365,68 @@ def export_logo_package(export_id: str, trim_transparent: bool = True,
         'note': 'Temporäre Links. Beide Dateien im Amber-Arbeitsbereich speichern '
                 'und Hashwerte prüfen. Originalfarben und Slogan müssen vorher geprüft sein.'
     }
+
+
+    if not include_data:
+        for key in ('svg_text', 'svg_base64', 'png_base64'):
+            result.pop(key)
+    return result
+
+
+@mcp.tool()
+def export_logo_package(export_id: str, trim_transparent: bool = True,
+                        padding: int = 1) -> dict:
+    """SVG/PNG-Paket mit svg_base64 und png_base64 sowie SHA-256 erzeugen.
+    Vollständige Daten unverändert dekodieren. Bei gekürzten Werkzeugantworten
+    stattdessen prepare_logo_transfer und read_logo_chunk verwenden.
+    Finale PNG maximal 300x36 Pixel, transparent. Slogan bleibt erhalten.
+    """
+    return build_logo_package(export_id, trim_transparent, padding)
+
+
+@mcp.tool()
+def prepare_logo_transfer(export_id: str, trim_transparent: bool = True,
+                          padding: int = 1) -> dict:
+    """Kleines Transfermanifest ohne SVG-Text oder lange Base64-Felder erstellen.
+    SVG und finale PNG werden als zusammengehörige unveränderliche Kopien aufbewahrt.
+    Rückgabe enthält transfer_id sowie Größen/Hashwerte/Abschnittszahlen pro Datei.
+    Danach read_logo_chunk einzeln aufrufen und jeden Abschnitt sofort lokal speichern.
+    Keine automatische Übertragung in Amber; keine Slogan-/Farbänderung.
+    """
+    result = build_logo_package(export_id, trim_transparent, padding, include_data=False)
+    transfer_id = result['package_id']
+    svg = stored_file(export_id, 'svg').read_bytes()
+    png = stored_file(transfer_id, 'tile.png').read_bytes()
+    (STORAGE / f'{transfer_id}.transfer.svg').write_bytes(svg)
+    manifest = {'transfer_id': transfer_id,
+                'svg': file_manifest(svg), 'png': file_manifest(png),
+                'png_dimensions': result['png'],
+                'svg_download_url': result['svg_download_url'],
+                'png_download_url': result['png_download_url'],
+                'retention': 'Temporär. Bei Ablauf komplett neu beginnen; keine Transfers mischen.'}
+    (STORAGE / f'{transfer_id}.transfer.json').write_text(json.dumps(manifest), encoding='utf-8')
+    return manifest
+
+
+@mcp.tool()
+def read_logo_chunk(transfer_id: str, file_type: str, index: int) -> dict:
+    """Genau einen kleinen Base64-Abschnitt (maximal 800 Zeichen) abrufen.
+    file_type ist svg oder png; index beginnt bei 0. Jeden Abschnitt mit run_code
+    sofort als Datei speichern. Nur ASCII-Leerraum entfernen; Länge und chunk_sha256
+    über den bereinigten ASCII-Base64-String prüfen. Bei Abweichung diesen Index erneut
+    abrufen. Dateiname muss transfer_id, file_type und index enthalten.
+    Nach allen Abschnitten in Reihenfolge zusammensetzen, strikt dekodieren und
+    vollständige Dateigröße und SHA-256 prüfen. Alle Abschnitte müssen dieselbe
+    transfer_id haben. Keine alten Python-Variablen voraussetzen.
+    """
+    if file_type not in ('svg', 'png'):
+        raise ValueError('file_type muss svg oder png sein.')
+    meta = json.loads(stored_file(transfer_id, 'transfer.json').read_text(encoding='utf-8'))
+    suffix = 'transfer.svg' if file_type == 'svg' else 'tile.png'
+    data = stored_file(transfer_id, suffix).read_bytes()
+    if file_manifest(data) != meta[file_type]:
+        raise ValueError('Transferdatei verändert. Vollständigen Transfer neu beginnen.')
+    return make_chunk(data, transfer_id, file_type, index)
 
 
 @mcp.custom_route('/files/{package_id}.png', methods=['GET'])

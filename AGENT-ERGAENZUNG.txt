@@ -1,30 +1,20 @@
-VERSION 5.1 – Verlustfreie Dateiübergabe für SVG und PNG
+VERSION 6 – Zunächst nur Einzelabschnittstest
 
-Diese Regeln ersetzen frühere Anweisungen zur Dateiübertragung und Sloganentfernung.
+Slogans bleiben vollständig erhalten. PNG wird weiterhin auf dem MCP erzeugt.
+Die bisherigen Regeln zu Quellen, Originalfarben und SharePoint gelten weiter.
 
-1. Übernimm das vollständige offizielle Logo einschließlich vorhandenem Slogan.
-   Entferne keine Bestandteile. Originalfarben anhand offizieller Referenz prüfen.
-2. Endgültige PNG mit export_logo_package auf dem MCP erzeugen. Neueste geprüfte
-   export_id verwenden. Ergebnis maximal 300 × 36 Pixel, proportional und transparent.
-3. BEIDE Dateien aus Base64 übernehmen: svg_base64 und png_base64 aus der tatsächlichen
-   Werkzeugantwort vollständig und unverändert in run_code übertragen.
-4. Beide Werte mit base64.b64decode(value, validate=True) dekodieren und die
-   resultierenden Bytes direkt mit Path.write_bytes speichern.
-   svg_text nicht mehr als Transferquelle verwenden. SVG nicht neu formatieren,
-   nicht als XML neu serialisieren und keine Zeilenumbrüche verändern.
-5. Für beide Bytefolgen SHA-256 und Byteanzahl mit svg_sha256/png_sha256 sowie
-   svg_size_bytes/png_size_bytes vergleichen. SVG und PNG getrennt prüfen.
-6. Bei fehlenden Feldern zunächst prüfen, ob die aktualisierte MCP-Version verbunden
-   ist. Bei Abweichung die tatsächlichen erwarteten und gemessenen Werte melden;
-   keine veränderte Datei als verlustfrei verifiziert ausgeben.
-7. PNG mit Pillow auf PNG-Format, RGBA und Maße <=300 Breite und <=36 Höhe prüfen.
-8. Download-Dateien und bei weißen Logos eine Vorschau auf dunklem Hintergrund
-   bereitstellen. Hintergrund nicht in die endgültige PNG übernehmen.
-9. Nur nach erfolgreicher Prüfung und entsprechendem Auftrag in SharePoint hochladen.
-   Bei offenen Markenfarben als Entwurf „Farbprüfung offen“ bereitstellen; noch keine
-   Ablage als fertiges Logo. Nutze echte lokale Pfade und bestätigte Upload-Ergebnisse.
-10. Download-Links des MCP bleiben eine Rückfalloption und werden unverändert
-    einschließlich .svg/.png übernommen. Links sind temporär.
+Für den nächsten Integrationstest ausschließlich prepare_logo_transfer und
+read_logo_chunk verwenden. Zuerst EINEN SVG-Abschnitt mit maximal 800 Zeichen
+abrufen und mit run_code die Zeichenanzahl und den Abschnitts-SHA-256 prüfen.
+Abschnitt sofort als JSON-Datei im Arbeitsbereich speichern. Nicht auf Python-
+Variablen aus früheren Codeaufrufen verlassen.
 
-Quellenreihenfolge und konfigurierte SharePoint-Zielordner bleiben unverändert.
-Ein Renderer in Ambers Code-Arbeitsbereich ist nicht erforderlich.
+Erst nach erfolgreichem Einzeltest den vollständigen Transfer ausführen:
+Abschnitte einzeln abrufen und speichern, vollständiges Manifest separat auf
+Datenträger behalten. Beim Zusammensetzen jedes Mal Manifest/Abschnitte neu von
+Dateien lesen und Identität, Reihenfolge und alle Hashwerte prüfen. Bei abgelaufenem
+Render-Transfer neu beginnen. Keine alten und neuen transfer_ids mischen.
+
+Eine erfolgreich gespeicherte Teilantwort ist noch keine vollständige SVG.
+Nur nach erfolgreichem vollständigem Datei-Hashvergleich fertige Dateien
+bereitstellen oder hochladen. Keine Dateiinhalte rekonstruieren.

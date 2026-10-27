@@ -1,3 +1,68 @@
+# Version 6 – Abschnittsweiser Dateiübertrag nach Amber
+
+Neu: prepare_logo_transfer und read_logo_chunk. Kein langer SVG-/Base64-String
+in der Manifestantwort. Bestehende Exportfunktionen bleiben verfügbar.
+
+## Installation
+
+Alle Dateien aus dem ZIP ins bestehende GitHub-Repository hochladen, Render
+neu deployen und die MCP-Werkzeuge in Amber neu laden/erneut verbinden.
+Neue Module transfer_chunks.py und chunk_receiver.py; server.py ersetzen.
+Token und MCP-URL bleiben gleich. Slogans bleiben erhalten.
+
+## Zuerst EINEN Abschnitt testen
+
+Den Auftrag aus TEST-ERSTER-ABSCHNITT.txt in einem neuen Agenten-Chat verwenden.
+Erfolg bedeutet: 800 Base64-Zeichen aus der tatsächlichen MCP-Antwort wurden
+lokal gespeichert und ihr Abschnitts-SHA stimmt. Noch keine fertige SVG behaupten.
+
+## Vollständiger Transfer (erst nach erfolgreichem Einzeltest)
+
+1. import_website_logo liefert export_id.
+2. prepare_logo_transfer liefert ein kleines Manifest und transfer_id; finale PNG
+   wird dabei wie bisher transparent und maximal 300 × 36 Pixel erstellt.
+3. read_logo_chunk(transfer_id, file_type='svg', index=0) liefert einen Abschnitt
+   von maximal 800 Base64-Zeichen. Der Bereich ist fix und beginnt bei 0.
+4. Unmittelbar mit run_code diesen Abschnitt prüfen und als Datei speichern:
+   /data/logo-chunks/TRANSFER_ID/svg-00000.json.
+   Der JSON-Datensatz enthält Daten und sämtliche Identitäts-/Hashfelder.
+5. Erst dann den nächsten Abschnitt abrufen. Nicht alle Antworten auf einmal in
+   den Chat holen. Jeder run_code-Aufruf muss seine Eingaben neu definieren;
+   dauerhaft sind die Abschnittsdateien, nicht die Python-Variablen.
+6. SVG-Abschnitte 0 bis chunk_count-1 zusammensetzen, strikt Base64-dekodieren
+   und die vollständige Dateigröße und SHA-256 gegen das Manifest prüfen.
+7. Dasselbe für PNG. Nur identische transfer_id verwenden. Bei abgelaufenen
+   Render-Dateien vollständig neu beginnen; alte Abschnitte niemals beimischen.
+
+chunk_receiver.py ist ein Referenzalgorithmus zum Prüfen/Speichern/Zusammensetzen
+im Amber-Arbeitsbereich. Die Datei wird nicht automatisch nach Amber übertragen.
+Amber kann diesen Algorithmus mit Python-Standardbibliotheken ausführen.
+Pillow ist nur für die anschließende PNG-Dimensionsprüfung erforderlich.
+
+Sämtliche Datenprüfungen bleiben aktiv. Ein fehlgeschlagener Abschnitt kann mit
+demselben Index erneut abgerufen werden. Bei geänderten Daten nicht raten oder
+rekonstruieren. Der endgültige Datei-Hash bleibt die letzte Kontrolle.
+
+## Grenzen
+
+Dateien bleiben temporär auf Render. Server-Neustarts können sie löschen.
+Abschnittsabrufe verlängern die einstündige Dateilebensdauer nicht.
+Das geteilte Übertragen ist noch immer eine Übergabe von Tool-Daten an run_code.
+Ob Amber kurze Werte zuverlässig übernimmt, ist erst mit dem Einzeltest belegt.
+Nicht erneut zahlreiche Tests wiederholen, falls schon dieser Schritt scheitert.
+Für große Dateien verursacht der Weg viele Werkzeugaufrufe. Er ist zunächst
+für kleine Herstellerlogos und diesen Integrationstest vorgesehen.
+
+## Prüfung
+
+Lokal getestet: Abschnitte <=800 Zeichen, vollständiges Zusammensetzen mit
+identischen Dateibytes, Hashes, Grenzlängen, ungültige Indizes, manipulierte
+Abschnitte und echte KaVo-SVG. Code-Syntax und ZIP geprüft.
+FastMCP-Registrierung, Render-Deployment und Amber-Transfer stehen als Live-Test aus.
+
+---
+Ältere Dokumentation: für den neuen Test gelten die obigen Transferregeln.
+
 # Version 5.1 – SVG ebenfalls als Base64 übertragen
 
 Behebt den beobachteten SVG-Transferunterschied (6.321 erwartete gegenüber

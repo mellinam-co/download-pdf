@@ -1,0 +1,19 @@
+Teste ausschließlich EINEN Abschnitt der neuen MCP-Übertragung.
+
+1. Importiere das vollständige KaVo-Logo mit Slogan von https://www.kavo.com/de-de
+   frisch und ohne Umfärbung mit inspect_website_logos/import_website_logo.
+2. Rufe prepare_logo_transfer mit der gerade erhaltenen export_id auf.
+3. Rufe read_logo_chunk mit dieser transfer_id, file_type="svg", index=0 auf.
+4. Übernimm nur diese kleine Werkzeugantwort in EINEN run_code-Aufruf.
+5. Entferne aus data_base64 ausschließlich ASCII-Leerzeichen, Tabulatoren, CR, LF.
+6. Prüfe tatsächliche Zeichenanzahl gegen chars und SHA-256 des bereinigten
+   ASCII-Strings gegen chunk_sha256. Dekodiere zusätzlich mit validate=True.
+7. Nur bei Übereinstimmung den vollständigen Abschnittsdatensatz als JSON unter
+   /data/logo-chunks/TRANSFER_ID/svg-00000.json speichern (TRANSFER_ID ersetzen).
+8. Gib tatsächliche Zeichenanzahl, erwarteten und tatsächlichen Abschnitts-SHA,
+   Prüfergebnis und gespeicherten Pfad aus. Nicht den Base64-Inhalt ausgeben.
+
+Keine vollständige SVG/PNG erstellen, keine Farbanpassung, kein SharePoint-Upload.
+Nicht die langen Base64-Felder von export_logo_package abrufen.
+Bei fehlenden Tools ausdrücklich melden, welches Tool nicht verfügbar ist.
+Bei Fehlern exakten Fehlertyp und Meldung aus run_code ausgeben.
