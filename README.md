@@ -1,4 +1,77 @@
-# Amber PDF-Werkzeuge – Version 2
+# Neu: SVG-Logos direkt aus Hersteller-Webseiten
+
+Diese Version enthält alle bisherigen PDF-Werkzeuge und zusätzlich:
+
+- `inspect_website_logos(page_url)`: SVG-Bildquellen und Inline-SVGs im HTML finden.
+- `import_website_logo(page_url, svg_url=None, inline_index=None, color=None)`:
+  gefundenes SVG herunterladen/bereinigen, optional einfärben und bereitstellen.
+- `preview_export(export_id)`: wie bisher die Vorschau prüfen.
+
+Freigegeben sind vorerst nur `www.kavo.com`, `kavo.com`,
+`www.germany.nsk-dental.com`, `germany.nsk-dental.com`.
+Für SVG-Webabrufe kann `WEB_HOSTS` in `web_logos.py` um vertrauenswürdige
+Herstellerhosts ergänzt werden. Externe CDN-Kandidaten werden zwar angezeigt,
+aber erst nach expliziter Host-Freigabe heruntergeladen.
+Die PDF-Download-Freigabe bleibt separat auf NSK beschränkt.
+
+## Update
+
+Alle Dateien aus dem ZIP in die Wurzel des bestehenden GitHub-Repositorys laden.
+`web_logos.py` muss neu hinzugefügt, `server.py` ersetzt werden. Danach Render
+neu deployen und in Amber die Tool-Liste durch erneutes Verbinden aktualisieren.
+Token und Server-URL bleiben gleich. Keine Zugangsdaten ins Repository laden.
+
+## Auftrag für Amber
+
+```text
+Nutze inspect_website_logos für https://www.kavo.com/de-de.
+Wähle die SVG-Quelle des KaVo-Herstellerlogos aus der Kandidatenliste.
+Importiere sie mit import_website_logo in #005CA9.
+Prüfe das Ergebnis mit preview_export.
+Gib download_url exakt und vollständig einschließlich .svg zurück.
+Nutze die MCP-Werkzeuge und nicht nur die Textausgabe der Websuche.
+```
+
+Für Originalfarben color weglassen oder null verwenden. Das KaVo-Weblogo ist
+in der hier geprüften Datei weiß und auf weißem Hintergrund kaum sichtbar.
+Die neue Web-SVG-Vorschau hat deshalb einen grauen Hintergrund; das SVG selbst
+wird dadurch nicht mit einem Hintergrund versehen.
+
+## Funktionsgrenzen und Schutz
+
+Es wird HTML abgerufen, kein Browser oder JavaScript ausgeführt. Unterstützt
+werden SVG-URLs in img/object/embed/link/a/source und SVG direkt im HTML.
+Logos ausschließlich aus CSS-Hintergründen, JavaScript, externen Sprites,
+Rasterbildern oder nicht freigegebenen CDN-Hosts werden nicht automatisch
+extrahiert. Komplexe Filter werden entfernt; Darstellung deshalb prüfen.
+Keine automatische Zuschneidung: ursprünglicher SVG-Zeichenbereich bleibt erhalten.
+
+Weiterleitungen nur zu erneut geprüften freigegebenen HTTPS-Hosts, maximal
+fünf Abrufe pro URL, 2 MB pro HTML/SVG und 45 Sekunden pro Abrufkette.
+DTD/Entities werden abgelehnt; aktive Inhalte, nicht unterstützte Elemente
+und Attribute werden entfernt. Externe SVG-Ressourcen werden abgelehnt.
+Farbe #RRGGBB ersetzt sichtbare Füll-/Linienfarben sowie Verlaufsfarben.
+Bei mehrfarbigen Logos ist das eine einfarbige Umfärbung.
+
+Wie bisher sind Exportlinks temporär, mit jedem Link öffentlich abrufbar und
+nach Neustart möglicherweise ungültig. Token ist nur für MCP-Aufrufe nötig.
+
+## Tests dieser Version
+
+Mit echtem KaVo-HTML wurde die Logo-URL gefunden. SVG in Originalfarben und
+Blau wurde lokal bereinigt und gerendert; die blaue Vorschau wurde visuell
+geprüft. DTD, externe Referenzen und nicht erlaubte URLs wurden abgelehnt;
+Script-/Event-Attribute wurden entfernt. Python-Syntax und ZIP wurden geprüft.
+Die lokalen Tests der reinen HTML-/SVG-Funktionen ersetzten das nicht verfügbare
+HTTPX-Modul durch einen Import-Platzhalter. Netzwerkcode, FastMCP-Laufzeit,
+Deployment und Amber-Integration sind hier nicht live getestet.
+Ein Versuch, die Test-Abhängigkeiten zu installieren, scheiterte an einem
+Hash-/Downloadfehler der Umgebung. Das bestehende funktionierende Deployment
+wurde nicht verändert.
+
+---
+
+# Amber PDF-Werkzeuge – Version 3
 
 Download, Seitenvorschau und SVG-Export direkt auf Render.
 
