@@ -1,3 +1,96 @@
+# Version 4: SVG-Farben und gezielte Bearbeitung
+
+Enthält alle bisherigen PDF- und Webseiten-Werkzeuge. Neu:
+
+- `inspect_svg_export(export_id, offset=0, limit=150)` listet Elemente mit IDs,
+  Gruppenbeziehungen, Attributen, Klassen und deklarierte Farbwerte auf.
+- `preview_svg_elements(export_id, element_ids)` zeigt eine Auswahl isoliert an.
+- `edit_svg_export(export_id, remove_element_ids=None, color_map=None,
+  element_colors=None)` erzeugt eine neue bearbeitete SVG-Revision.
+
+## Update des bestehenden Dienstes
+
+1. Alle Dateien aus diesem ZIP in die GitHub-Repository-Wurzel hochladen.
+2. Insbesondere `svg_edit.py` neu hinzufügen und server.py/web_logos.py ersetzen.
+3. Änderungen speichern und Render neu deployen lassen.
+4. MCP in Amber erneut verbinden und prüfen, ob die drei neuen Tools erscheinen.
+5. Den Inhalt von `AGENT-ERGAENZUNG.txt` an die Agentenanweisungen anhängen.
+6. Token und MCP-URL bleiben unverändert.
+
+## Neue Domains ohne Codeänderung freigeben
+
+In Render eine Umgebungsvariable anlegen:
+
+```
+EXTRA_ALLOWED_HOSTS=www.hersteller.de,medien.hersteller.de,commons.wikimedia.org,upload.wikimedia.org
+```
+
+Nur tatsächlich benötigte, vertrauenswürdige Hostnamen einsetzen. Die
+Herstelleradressen im Beispiel sind Platzhalter. Kein https://, kein Pfad,
+keine Wildcards und keine IP-Adressen. Jede Subdomain separat nennen.
+Diese zusätzlichen Hosts gelten für Web-SVGs und PDF-Downloads. PDF-Downloads
+folgen weiterhin keinen Weiterleitungen. Nach Änderung neu deployen.
+Domain-Freigabe bedeutet nicht, dass Commons-Dateiseiten oder jede Website
+automatisch unterstützt werden: SVGs müssen als unterstützte HTML-Kandidaten
+vorliegen; JavaScript-/CSS-only-Suche und PNG-Import sind nicht enthalten.
+
+## Farben prüfen
+
+Offizielle Referenz mit `import_website_logo` ohne color importieren.
+Dann `inspect_svg_export` aufrufen. Die Angaben sind deklarierte Farbwerte,
+keine vollständige CSS-Berechnung und kein Beweis einer verbindlichen Markenfarbe.
+Amber muss die Referenz und Variante selbst prüfen. Bei Rasterreferenzen
+liest diese Version keine Pixelwerte aus. Es gibt keine automatische Markensuche.
+
+## Beispiel für Änderungen
+
+```
+edit_svg_export(
+  export_id="AKTUELLE_ID",
+  remove_element_ids=["e7"],
+  color_map={"#ffffff": "#005CA9"}
+)
+```
+
+Dieses Beispiel demonstriert ausschließlich die Technik. #005CA9 ist KEIN
+bestätigter Markenfarbwert. e7 ist KEINE allgemeingültige Slogan-ID.
+IDs immer aus der aktuellen SVG-Version lesen und visuell kontrollieren!
+Bei der lokal geprüften KaVo-Datei war e7 der separate Sloganpfad.
+Der jeweilige Export kann bei geänderter Quelldatei anders aufgebaut sein.
+
+`color_map` ersetzt exakte deklarierte Farben in Attributen und Styles.
+`element_colors={"e8":"#112233"}` setzt sichtbare Füll-/Linienfarben
+gezielt auf einem Element oder den Grafikelementen einer Gruppe.
+Nicht alle CSS-Vererbungen und !important-Regeln werden vollständig aufgelöst.
+Transparenz none/transparent und interne Referenzen bleiben beim globalen
+Farbersatz unverändert. Gruppen-/Symbolreferenzen können Sonderfälle enthalten.
+
+Die Originaldatei bleibt bestehen. Jede Bearbeitung erhält eine neue export_id;
+Element-IDs dafür neu ermitteln. SVG-Ansichtsbereich/viewBox bleibt erhalten.
+Nach Sloganentfernung kann Leerraum verbleiben: Amber soll beim PNG-Export den
+sichtbaren Inhalt prüfen und vorsichtig zuschneiden, ohne Schutzraum zu verlieren.
+Kein automatisches Zerschneiden von zusammenhängenden Pfaden; solche Slogans
+sind mit diesem Werkzeug nicht unabhängig entfernbar.
+
+PNG-Finalexport (300 × 36 maximal) und SharePoint-Upload erfolgen weiterhin in
+Amber, nicht in diesem MCP. Vorschau-PNGs sind nicht die Produktionsdateien.
+
+## Tests Version 4
+
+Lokal geprüft: CSS-/Attribut-Farben auslesen, globaler Farbersatz,
+Elemententfernung, Isolationsvorschau, unveränderte Originaldatei, ungültige
+Element-IDs/Farben und Domain-Konfiguration. An der echten KaVo-SVG wurde der
+Slogan separat angezeigt und entfernt; die Vorschauen wurden visuell geprüft.
+Farbersatz wurde als technischer Test durchgeführt, nicht als Markenfreigabe.
+
+Reine SVG-Funktionen wurden mit einem HTTPX-Import-Platzhalter getestet;
+HTTPX/FastMCP waren hier nicht installiert. Python-Syntax und ZIP sind geprüft.
+Live-Deployment, Registrierung der MCP-Tools und Amber-Integration stehen aus.
+
+---
+
+## Dokumentation der vorherigen Basisfunktionen
+
 # Neu: SVG-Logos direkt aus Hersteller-Webseiten
 
 Diese Version enthält alle bisherigen PDF-Werkzeuge und zusätzlich:

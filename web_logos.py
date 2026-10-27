@@ -1,5 +1,7 @@
 """HTML-SVG discovery and conservative SVG sanitization for trusted sites."""
 import asyncio
+import os
+import ipaddress
 import re
 from urllib.parse import urljoin, urlsplit
 from xml.etree import ElementTree as ET
@@ -10,6 +12,23 @@ from html.parser import HTMLParser
 
 WEB_HOSTS = {'www.kavo.com', 'kavo.com',
              'www.germany.nsk-dental.com', 'germany.nsk-dental.com'}
+def configured_hosts():
+    result = set()
+    for host in os.environ.get('EXTRA_ALLOWED_HOSTS', '').replace('\n', ',').split(','):
+        host = host.strip().lower()
+        if not host:
+            continue
+        if not re.fullmatch(r'[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?', host) or '.' not in host:
+            raise RuntimeError('EXTRA_ALLOWED_HOSTS: Nur exakte öffentliche DNS-Hostnamen, keine URLs/Wildcards.')
+        try:
+            ipaddress.ip_address(host)
+        except ValueError:
+            result.add(host)
+        else:
+            raise RuntimeError('IP-Adressen sind als Freigabe nicht erlaubt.')
+    return result
+
+WEB_HOSTS |= configured_hosts()
 SVG_NS = 'http://www.w3.org/2000/svg'
 ET.register_namespace('', SVG_NS)
 ET.register_namespace('xlink', 'http://www.w3.org/1999/xlink')

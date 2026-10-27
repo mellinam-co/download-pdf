@@ -15,12 +15,14 @@ from fastmcp.server.auth import StaticTokenVerifier
 from fastmcp.utilities.types import Image
 from starlette.responses import Response
 from pdf_tools import export_vectors
-from web_logos import fetch, discover, prepare_svg
+from web_logos import fetch, discover, prepare_svg, configured_hosts
+from svg_edit import inspect_svg, isolate_svg, edit_svg
 
 TOKEN = os.environ['MCP_AUTH_TOKEN']
 if len(TOKEN) < 32:
     raise RuntimeError('MCP_AUTH_TOKEN muss mindestens 32 Zeichen haben.')
 ALLOWED_HOSTS = {'www.germany.nsk-dental.com', 'germany.nsk-dental.com'}
+ALLOWED_HOSTS |= configured_hosts()
 MAX_BYTES = 20 * 1024 * 1024
 MAX_FILES = 20
 TTL_SECONDS = 3600
@@ -260,6 +262,61 @@ async def import_website_logo(page_url: str, svg_url: str | None = None,
                 'download_url': f'{base}/files/{export_id}.svg' if base else None,
                 'svg': svg.decode('utf-8'), 'removed_elements': removed,
                 'note': 'SVG bereinigt. Vorschau mit preview_export prüfen. Link exakt übernehmen.'}
+
+
+def save_svg_revision(svg, png):
+    cleanup()
+    if len(list(STORAGE.glob('*.svg'))) >= 20:
+        raise ValueError('Maximal 20 SVG-Dateien. Später erneut versuchen.')
+    export_id = uuid4().hex
+    (STORAGE / f'{export_id}.svg').write_bytes(svg)
+    (STORAGE / f'{export_id}.png').write_bytes(png)
+    base = os.environ.get('PUBLIC_BASE_URL', os.environ.get('RENDER_EXTERNAL_URL', '')).rstrip('/')
+    return {'export_id': export_id, 'svg': svg.decode('utf-8'),
+            'download_url': f'{base}/files/{export_id}.svg' if base else None,
+            'note': 'Neue Revision. Element-IDs erneut mit inspect_svg_export ermitteln.'}
+
+
+@mcp.tool()
+def inspect_svg_export(export_id: str, offset: int = 0, limit: int = 150) -> dict:
+    """SVG-Element-IDs und deklarierte Farben auslesen. Auch Farbreferenzdateien
+    zuerst per import_website_logo ohne color importieren. Farben sind Quellenwerte,
+    nicht automatisch verbindliche Markenfarben. IDs gelten nur für diesen Export.
+    """
+    return dict(export_id=export_id, **inspect_svg(stored_file(export_id, 'svg').read_bytes(), offset, limit))
+
+
+@mcp.tool()
+def preview_svg_elements(export_id: str, element_ids: list[str]) -> Image:
+    """Nur ausgewählte SVG-Elemente/Gruppen auf grauem Hintergrund anzeigen.
+    Zum Identifizieren von Slogan und Wortmarke. Verändert keine Exportdatei.
+    CSS-Vererbung/Referenzen können die Isolation beeinflussen; stets vergleichen.
+    """
+    data = isolate_svg(stored_file(export_id, 'svg').read_bytes(), element_ids)
+    _, png, _ = prepare_svg(data)
+    return Image(data=png, format='png')
+
+
+@mcp.tool()
+def edit_svg_export(export_id: str, remove_element_ids: list[str] | None = None,
+                    color_map: dict[str, str] | None = None,
+                    element_colors: dict[str, str] | None = None) -> dict:
+    """Neue SVG-Revision erzeugen: Elemente entfernen und Farben gezielt ersetzen.
+
+    Vorher inspect_svg_export und preview_svg_elements benutzen. remove_element_ids
+    nur für eindeutig identifizierte Slogans. color_map z.B. {"#ffffff":"#005CA9"}
+    ersetzt exakte deklarierte Farben global; keine Ableitung/Schätzung von Markenfarben.
+    element_colors z.B. {"e12":"#005CA9"} setzt sichtbare Farben einzelner Elemente.
+    Zielfarben nur aus belegter Referenz oder explizitem Nutzerwunsch verwenden.
+    Original bleibt unverändert. Neue Element-IDs gelten nur für die neue Revision.
+    viewBox bleibt erhalten; Ränder nach Sloganentfernung bei PNG-Aufbereitung prüfen.
+    Ergebnis mit preview_export prüfen. In komplexem CSS sind Abweichungen möglich.
+    """
+    source = stored_file(export_id, 'svg').read_bytes()
+    svg, png, _ = edit_svg(source, remove_element_ids or [], color_map or {}, element_colors or {})
+    result = save_svg_revision(svg, png)
+    result['source_export_id'] = export_id
+    return result
 
 
 if __name__ == '__main__':

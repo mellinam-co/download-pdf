@@ -1,0 +1,26 @@
+SVG-Prüfung und Bearbeitung mit den neuen MCP-Werkzeugen:
+
+1. Offizielle Logo- und Farbreferenzen mit import_website_logo ohne color importieren.
+2. inspect_svg_export liest deklarierte Farben und SVG-Element-IDs aus. Diese Werte
+   allein beweisen keine reguläre Markenfarbe; Referenz und Variante prüfen.
+3. preview_svg_elements zeigt ausgewählte Elemente isoliert. So den Slogan
+   eindeutig von Wortmarke und Bildmarke unterscheiden.
+4. edit_svg_export entfernt nur sicher identifizierte Elemente und ersetzt Farben
+   anhand belegter Referenzen. color_map ersetzt eine deklarierte Farbe global;
+   element_colors erlaubt gezielte Änderungen pro Element/Gruppe.
+5. Keine Farbwerte schätzen. Die aktuelle Option color färbt sonst das ganze Logo
+   pauschal einfarbig um und eignet sich nicht für mehrfarbige Marken.
+6. IDs gelten nur für die konkrete export_id. Nach Bearbeitung neue IDs auslesen.
+7. Ergebnis mit preview_export prüfen. SVG-Text der neuesten Revision unverändert
+   als UTF-8-Datei im Code-Arbeitsbereich speichern.
+8. Erst danach eine transparente PNG mit maximal 300 Pixel Breite und maximal
+   36 Pixel Höhe proportional erzeugen. Nach Sloganentfernung den sichtbaren
+   Inhalt und Außenraum prüfen. MCP-Vorschau nicht als finale PNG verwenden.
+9. Sind Farben ungeklärt, darf für den technischen Test das originale weiße SVG
+   samt PNG als Entwurf mit Status „Farbprüfung offen“ bereitgestellt werden.
+   Auf dunklem Hintergrund vorschauen. Nicht als fertiges Logo in SharePoint ablegen.
+10. Blockierte Domains als technische Einschränkung melden. Nicht behaupten, dass
+    kein Logo existiert. Die Administration kann exakte vertrauenswürdige Hosts
+    über EXTRA_ALLOWED_HOSTS bei Render ergänzen.
+11. Ein zusammenhängender Vektorpfad lässt sich mit diesen Tools nicht automatisch
+    in Slogan und Marke zerlegen. In diesem Fall andere Quelle suchen oder Rückfrage.
