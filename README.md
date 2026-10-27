@@ -1,3 +1,41 @@
+# Version 5.1 – SVG ebenfalls als Base64 übertragen
+
+Behebt den beobachteten SVG-Transferunterschied (6.321 erwartete gegenüber
+6.303 übertragenen Bytes). Ursache der Textveränderung ist nicht bekannt.
+Da PNG-Base64 mit identischem Hash übertragen wurde, wird derselbe Transferweg
+jetzt auch für SVG angeboten. Kein Abschalten der Integritätsprüfung.
+
+## Update
+
+Alle Dateien in GitHub aktualisieren, Render neu deployen, MCP in Amber neu
+verbinden. AGENT-ERGAENZUNG.txt an die Anweisungen anhängen; widersprechende
+ältere Transferregeln ersetzen. Diese Ergänzung erhält vorhandene Slogans.
+Token und Server-URL unverändert lassen.
+
+## Neuer Rückgabewert
+
+export_logo_package liefert zusätzlich svg_base64. svg_text bleibt für
+Kompatibilität enthalten, ist aber nicht mehr die empfohlene Transferquelle.
+Beide Base64-Felder mit base64.b64decode(value, validate=True) dekodieren und
+mit write_bytes speichern. Erwartete Hashwerte und Dateigrößen sind unverändert.
+
+## Test in Amber
+
+```text
+Rufe export_logo_package erneut für das vollständige KaVo-Logo mit Slogan auf.
+Übertrage svg_base64 und png_base64 vollständig in run_code. Dekodiere beide
+mit base64.b64decode(value, validate=True). Prüfe für beide Dateien Byteanzahl
+und SHA-256 anhand der Werkzeugantwort. Speichere nur geprüfte Ergebnisse als
+/data/kavo-test.svg und /data/kavo-test.png und stelle sie zum Download bereit.
+Keine Farbanpassung und kein SharePoint-Upload bei diesem technischen Test.
+```
+
+Lokal geprüft: Base64-Roundtrip beider Dateien und Transferhelper mit passenden
+Hashwerten und Größen; Python-Syntax und ZIP. Amber-Integration steht aus.
+
+---
+Frühere Dokumentation (Transferangaben durch Version 5.1 ersetzt):
+
 # Version 5 – Finale PNG im MCP und Transfer nach Amber
 
 ## Update

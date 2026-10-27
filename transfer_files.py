@@ -11,7 +11,7 @@ def save_package(package: dict, output_directory: str, manufacturer: str = 'logo
     import re
     if not re.fullmatch(r'[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}', manufacturer):
         raise ValueError('Ungültiger Dateiname.')
-    svg = package['svg_text'].encode('utf-8')
+    svg = base64.b64decode(package['svg_base64'], validate=True)
     png = base64.b64decode(package['png_base64'], validate=True)
     for data, kind in ((svg, 'svg'), (png, 'png')):
         if hashlib.sha256(data).hexdigest() != package[f'{kind}_sha256']:

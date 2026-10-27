@@ -1,32 +1,30 @@
-VERSION 5 – Diese Regeln ersetzen frühere Anweisungen zur PNG-Erzeugung:
+VERSION 5.1 – Verlustfreie Dateiübergabe für SVG und PNG
 
-Erzeuge die endgültige PNG ausschließlich mit export_logo_package auf dem MCP.
-Ein SVG-Renderer in Ambers Arbeitsbereich ist dafür nicht erforderlich.
+Diese Regeln ersetzen frühere Anweisungen zur Dateiübertragung und Sloganentfernung.
 
-1. Logo und Farben prüfen, Slogan bei Bedarf entfernen. Neueste export_id verwenden.
-2. export_logo_package(export_id, trim_transparent=True, padding=1) aufrufen.
-   Ergebnis hat maximal 300 × 36 Pixel und transparenten Hintergrund. Falls ein
-   offizieller Schutzraum erhalten werden muss: trim_transparent=False verwenden.
-3. svg_text exakt als UTF-8 übernehmen. png_base64 vollständig und unverändert
-   mit base64.b64decode(value, validate=True) dekodieren.
-4. Mit run_code beide Dateien im Arbeitsbereich speichern. Keine SVG-Pfade oder
-   Base64-Inhalte erfinden, kürzen oder aus einer bloßen Textvorschau rekonstruieren.
-5. Für beide Dateien SHA-256 berechnen und mit svg_sha256 bzw. png_sha256 vergleichen.
-   Dateigrößen ebenfalls mit svg_size_bytes und png_size_bytes vergleichen.
-6. Bei Abweichung nicht speichern/hochladen, sondern vollständige Daten erneut
-   übertragen. Wenn die Tool-Ausgabe nicht zuverlässig an run_code übergeben
-   werden kann, diese Grenze ausdrücklich nennen und die Download-Links anbieten.
-7. PNG mit Pillow öffnen und Format, RGBA-Modus und tatsächliche Maße prüfen.
-   Beide Dateien zum Download bereitstellen und PNG auf dunklem Hintergrund
-   vorschauen, wenn das Logo weiß ist. Dunklen Hintergrund nicht in die PNG schreiben.
-8. Danach, sofern angefordert und konfiguriert, SVG und PNG über Ambers vorhandene
-   SharePoint-Werkzeuge hochladen. Dafür die echten lokalen Dateipfade verwenden.
-9. Bei offenen Markenfarben den technischen Test als Entwurf „Farbprüfung offen“
-   bereitstellen, nicht als fertiges Logo in SharePoint ablegen.
-10. svg_download_url und png_download_url unverändert einschließlich Endung nutzen.
-    Link-Downloads sind die Rückfalloption. Der reguläre Übergabeweg ist SVG-Text
-    plus PNG-Base64. Eine Datei-ID allein ist keine übertragene Datei.
+1. Übernimm das vollständige offizielle Logo einschließlich vorhandenem Slogan.
+   Entferne keine Bestandteile. Originalfarben anhand offizieller Referenz prüfen.
+2. Endgültige PNG mit export_logo_package auf dem MCP erzeugen. Neueste geprüfte
+   export_id verwenden. Ergebnis maximal 300 × 36 Pixel, proportional und transparent.
+3. BEIDE Dateien aus Base64 übernehmen: svg_base64 und png_base64 aus der tatsächlichen
+   Werkzeugantwort vollständig und unverändert in run_code übertragen.
+4. Beide Werte mit base64.b64decode(value, validate=True) dekodieren und die
+   resultierenden Bytes direkt mit Path.write_bytes speichern.
+   svg_text nicht mehr als Transferquelle verwenden. SVG nicht neu formatieren,
+   nicht als XML neu serialisieren und keine Zeilenumbrüche verändern.
+5. Für beide Bytefolgen SHA-256 und Byteanzahl mit svg_sha256/png_sha256 sowie
+   svg_size_bytes/png_size_bytes vergleichen. SVG und PNG getrennt prüfen.
+6. Bei fehlenden Feldern zunächst prüfen, ob die aktualisierte MCP-Version verbunden
+   ist. Bei Abweichung die tatsächlichen erwarteten und gemessenen Werte melden;
+   keine veränderte Datei als verlustfrei verifiziert ausgeben.
+7. PNG mit Pillow auf PNG-Format, RGBA und Maße <=300 Breite und <=36 Höhe prüfen.
+8. Download-Dateien und bei weißen Logos eine Vorschau auf dunklem Hintergrund
+   bereitstellen. Hintergrund nicht in die endgültige PNG übernehmen.
+9. Nur nach erfolgreicher Prüfung und entsprechendem Auftrag in SharePoint hochladen.
+   Bei offenen Markenfarben als Entwurf „Farbprüfung offen“ bereitstellen; noch keine
+   Ablage als fertiges Logo. Nutze echte lokale Pfade und bestätigte Upload-Ergebnisse.
+10. Download-Links des MCP bleiben eine Rückfalloption und werden unverändert
+    einschließlich .svg/.png übernommen. Links sind temporär.
 
-Die bisherigen Regeln zu Quellen, Originalfarben, Slogan, Qualitätsprüfung und
-SharePoint-Zielordnern gelten weiterhin. Die Farb-/Slogan-Werkzeuge aus Version 4
-bleiben verfügbar. version 5 ergänzt nur den endgültigen Export und Transfer.
+Quellenreihenfolge und konfigurierte SharePoint-Zielordner bleiben unverändert.
+Ein Renderer in Ambers Code-Arbeitsbereich ist nicht erforderlich.
