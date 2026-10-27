@@ -1,26 +1,32 @@
-SVG-Prüfung und Bearbeitung mit den neuen MCP-Werkzeugen:
+VERSION 5 – Diese Regeln ersetzen frühere Anweisungen zur PNG-Erzeugung:
 
-1. Offizielle Logo- und Farbreferenzen mit import_website_logo ohne color importieren.
-2. inspect_svg_export liest deklarierte Farben und SVG-Element-IDs aus. Diese Werte
-   allein beweisen keine reguläre Markenfarbe; Referenz und Variante prüfen.
-3. preview_svg_elements zeigt ausgewählte Elemente isoliert. So den Slogan
-   eindeutig von Wortmarke und Bildmarke unterscheiden.
-4. edit_svg_export entfernt nur sicher identifizierte Elemente und ersetzt Farben
-   anhand belegter Referenzen. color_map ersetzt eine deklarierte Farbe global;
-   element_colors erlaubt gezielte Änderungen pro Element/Gruppe.
-5. Keine Farbwerte schätzen. Die aktuelle Option color färbt sonst das ganze Logo
-   pauschal einfarbig um und eignet sich nicht für mehrfarbige Marken.
-6. IDs gelten nur für die konkrete export_id. Nach Bearbeitung neue IDs auslesen.
-7. Ergebnis mit preview_export prüfen. SVG-Text der neuesten Revision unverändert
-   als UTF-8-Datei im Code-Arbeitsbereich speichern.
-8. Erst danach eine transparente PNG mit maximal 300 Pixel Breite und maximal
-   36 Pixel Höhe proportional erzeugen. Nach Sloganentfernung den sichtbaren
-   Inhalt und Außenraum prüfen. MCP-Vorschau nicht als finale PNG verwenden.
-9. Sind Farben ungeklärt, darf für den technischen Test das originale weiße SVG
-   samt PNG als Entwurf mit Status „Farbprüfung offen“ bereitgestellt werden.
-   Auf dunklem Hintergrund vorschauen. Nicht als fertiges Logo in SharePoint ablegen.
-10. Blockierte Domains als technische Einschränkung melden. Nicht behaupten, dass
-    kein Logo existiert. Die Administration kann exakte vertrauenswürdige Hosts
-    über EXTRA_ALLOWED_HOSTS bei Render ergänzen.
-11. Ein zusammenhängender Vektorpfad lässt sich mit diesen Tools nicht automatisch
-    in Slogan und Marke zerlegen. In diesem Fall andere Quelle suchen oder Rückfrage.
+Erzeuge die endgültige PNG ausschließlich mit export_logo_package auf dem MCP.
+Ein SVG-Renderer in Ambers Arbeitsbereich ist dafür nicht erforderlich.
+
+1. Logo und Farben prüfen, Slogan bei Bedarf entfernen. Neueste export_id verwenden.
+2. export_logo_package(export_id, trim_transparent=True, padding=1) aufrufen.
+   Ergebnis hat maximal 300 × 36 Pixel und transparenten Hintergrund. Falls ein
+   offizieller Schutzraum erhalten werden muss: trim_transparent=False verwenden.
+3. svg_text exakt als UTF-8 übernehmen. png_base64 vollständig und unverändert
+   mit base64.b64decode(value, validate=True) dekodieren.
+4. Mit run_code beide Dateien im Arbeitsbereich speichern. Keine SVG-Pfade oder
+   Base64-Inhalte erfinden, kürzen oder aus einer bloßen Textvorschau rekonstruieren.
+5. Für beide Dateien SHA-256 berechnen und mit svg_sha256 bzw. png_sha256 vergleichen.
+   Dateigrößen ebenfalls mit svg_size_bytes und png_size_bytes vergleichen.
+6. Bei Abweichung nicht speichern/hochladen, sondern vollständige Daten erneut
+   übertragen. Wenn die Tool-Ausgabe nicht zuverlässig an run_code übergeben
+   werden kann, diese Grenze ausdrücklich nennen und die Download-Links anbieten.
+7. PNG mit Pillow öffnen und Format, RGBA-Modus und tatsächliche Maße prüfen.
+   Beide Dateien zum Download bereitstellen und PNG auf dunklem Hintergrund
+   vorschauen, wenn das Logo weiß ist. Dunklen Hintergrund nicht in die PNG schreiben.
+8. Danach, sofern angefordert und konfiguriert, SVG und PNG über Ambers vorhandene
+   SharePoint-Werkzeuge hochladen. Dafür die echten lokalen Dateipfade verwenden.
+9. Bei offenen Markenfarben den technischen Test als Entwurf „Farbprüfung offen“
+   bereitstellen, nicht als fertiges Logo in SharePoint ablegen.
+10. svg_download_url und png_download_url unverändert einschließlich Endung nutzen.
+    Link-Downloads sind die Rückfalloption. Der reguläre Übergabeweg ist SVG-Text
+    plus PNG-Base64. Eine Datei-ID allein ist keine übertragene Datei.
+
+Die bisherigen Regeln zu Quellen, Originalfarben, Slogan, Qualitätsprüfung und
+SharePoint-Zielordnern gelten weiterhin. Die Farb-/Slogan-Werkzeuge aus Version 4
+bleiben verfügbar. version 5 ergänzt nur den endgültigen Export und Transfer.

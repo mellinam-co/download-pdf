@@ -1,3 +1,83 @@
+# Version 5 – Finale PNG im MCP und Transfer nach Amber
+
+## Update
+
+1. ZIP entpacken und alle Dateien in die GitHub-Repository-Wurzel hochladen.
+2. Neu sind png_export.py und transfer_files.py. server.py und requirements.txt
+   müssen ersetzt werden. Pillow wird beim Render-Build zusätzlich installiert.
+3. Render neu deployen lassen. Token/URL bleiben gleich.
+4. MCP in Amber neu verbinden. Das neue Tool export_logo_package muss erscheinen.
+5. AGENT-ERGAENZUNG.txt an die Agentenanweisung anhängen. Diese Regeln ersetzen
+   die frühere Anweisung, PNG selbst mit einem SVG-Renderer in Amber zu erstellen.
+
+## Neuer Ablauf
+
+Nach geprüftem SVG-Export:
+`export_logo_package(export_id, trim_transparent=True, padding=1)`.
+
+Antwortfelder:
+- svg_text: vollständiges UTF-8-SVG (unverändert).
+- png_base64: vollständige PNG-Dateidaten, base64-kodiert.
+- svg_sha256, png_sha256: SHA-256 über die jeweiligen Dateibytes.
+- svg_size_bytes, png_size_bytes: erwartete Dateigrößen.
+- png: tatsächliche Maße und Exportparameter.
+- svg_download_url, png_download_url: temporäre Download-Links.
+
+Amber übernimmt die vollständigen strukturierten Felder in run_code, schreibt
+SVG als UTF-8 und dekodiert PNG mit Python base64. Kein SVG-Renderer nötig.
+Der optionale Helper transfer_files.py zeigt das Speichern und Prüfen; er läuft
+im Amber-Arbeitsbereich und wird nicht automatisch dorthin übertragen.
+Amber kann den Algorithmus mit vorhandenen Standardbibliotheken/Pillow ausführen.
+Kein Zugriff auf Render-Dateipfade oder Render-Pythonmodule voraussetzen.
+
+Wenn Amber strukturierte Tool-Ergebnisse nicht vollständig an run_code übergeben
+kann, löst diese Erweiterung das nicht automatisch. Dann Daten erneut übertragen
+oder die temporären Links manuell herunterladen. Die Hash-Prüfung verhindert,
+dass unbemerkt gekürzte oder veränderte Daten als korrekte Datei verwendet werden.
+
+## PNG-Regeln
+
+- Höchstens 300 Pixel breit und 36 Pixel hoch, proportional skaliert.
+- RGBA mit Alpha, ohne grauen/weißen Vorschau-Hintergrund.
+- Supersampling und Lanczos-Downsampling.
+- Standard: vollständig transparente Außenränder entfernen, 1 Pixel transparenten
+  Rand ergänzen. Dieser Rand ist bereits in den maximalen Abmessungen enthalten.
+- trim_transparent=False erhält den SVG-Zeichenbereich; padding 0 bis 5 erlaubt.
+- Original-SVG bleibt unverändert. Es wird kein Slogan automatisch erkannt.
+- Farbreferenz und Slogan müssen vor dem Export geprüft werden.
+
+## Technischer Testauftrag in Amber
+
+```text
+Importiere das KaVo-Weblogo ohne Umfärbung. Prüfe und entferne den Slogan mit
+inspect_svg_export, preview_svg_elements und edit_svg_export.
+Erzeuge aus der neuesten SVG-Revision mit export_logo_package eine transparente
+PNG. Übertrage svg_text und png_base64 vollständig in deinen Code-Arbeitsbereich.
+Speichere SVG und PNG, prüfe beide SHA-256 und die tatsächlichen PNG-Maße.
+Zeige die weiße PNG auf dunklem Hintergrund als Vorschau.
+Status: Farbprüfung offen. Gib beide Dateien aus, noch kein SharePoint-Upload.
+Wenn du die Tool-Daten nicht vollständig an run_code übergeben kannst, benenne
+exakt diesen fehlenden Übergabeschritt.
+```
+
+## Lokal geprüft
+
+Echtes KaVo-Logo ohne Slogan: PNG 118 × 36 Pixel, RGBA mit Transparenz.
+PNG-Erzeugung, extreme Seitenverhältnisse, Leerbild-Ablehnung, Base64-Roundtrip,
+Hash-/Größenprüfung und Transferhelper wurden lokal getestet.
+SVG- und PNG-Ausgabe werden getrennt von den Vorschau-PNGs gespeichert.
+Python-Syntax und ZIP geprüft. Kein Live-Deployment, keine MCP-Registrierung,
+keine Amber-Dateiübergabe und kein SharePoint-Upload in dieser Umgebung getestet.
+
+Finale PNGs liegen temporär auf Render. Neustarts/Inaktivität können Dateien
+löschen. Links enthalten eine zufällige ID; jeder mit dem Link kann herunterladen.
+SVG maximal 512 KB für die Textübergabe, höchstens 20 finale PNGs pro Prozess.
+Für PNG-Erzeugung wird Pillow zusätzlich zu PyMuPDF verwendet.
+
+---
+
+## Vorherige Funktionen und Konfiguration
+
 # Version 4: SVG-Farben und gezielte Bearbeitung
 
 Enthält alle bisherigen PDF- und Webseiten-Werkzeuge. Neu:
